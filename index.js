@@ -7,119 +7,131 @@ const contactRoutes = require("./routes/contact.routes");
 
 const app = express();
 
-// ✅ CORS Configuration - Allow your Netlify frontend
-const corsOptions = {
-  origin: [
-    'http://localhost:5173',
-    'http://localhost:3000',
-    'https://indiatourcmp.netlify.app'
-  ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization']
-};
+/* ======================================================
+   ✅ CORS CONFIGURATION (Netlify + Localhost)
+====================================================== */
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "https://indiatourcmp.netlify.app",
+];
 
-app.use(cors(corsOptions));
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true); // Allow Postman / server-to-server
+      if (allowedOrigins.indexOf(origin) === -1) {
+        return callback(new Error("CORS not allowed"), false);
+      }
+      return callback(null, true);
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 
-// ✅ Request logging middleware
+/* ======================================================
+   ✅ REQUEST LOGGER
+====================================================== */
 app.use((req, res, next) => {
   console.log(`📍 ${new Date().toISOString()} - ${req.method} ${req.path}`);
   next();
 });
 
-// ✅ Health check endpoint
-app.get('/api/health', (req, res) => {
+/* ======================================================
+   ✅ HEALTH CHECK ROUTE
+====================================================== */
+app.get("/api/health", (req, res) => {
   const envCheck = {
-    BREVO_SMTP_USER: process.env.BREVO_SMTP_USER ? '✅ Configured' : '❌ Not configured',
-    BREVO_SMTP_PASSWORD: process.env.BREVO_SMTP_PASSWORD ? '✅ Configured' : '❌ Not configured',
-    BREVO_SENDER_EMAIL: process.env.BREVO_SENDER_EMAIL ? '✅ Configured' : '❌ Not configured',
-    RECEIVER_EMAIL: process.env.RECEIVER_EMAIL ? '✅ Configured' : '❌ Not configured',
+    BREVO_API_KEY: process.env.BREVO_API_KEY ? "✅ Configured" : "❌ Not configured",
+    BREVO_SENDER_EMAIL: process.env.BREVO_SENDER_EMAIL ? "✅ Configured" : "❌ Not configured",
+    RECEIVER_EMAIL: process.env.RECEIVER_EMAIL ? "✅ Configured" : "❌ Not configured",
     PORT: process.env.PORT || 5000,
-    NODE_ENV: process.env.NODE_ENV || 'production'
+    NODE_ENV: process.env.NODE_ENV || "production",
   };
 
-  console.log('🏥 Health check requested:', envCheck);
+  console.log("🏥 Health check requested:", envCheck);
 
-  res.json({ 
-    success: true, 
-    message: 'Server is running perfectly! 🚀',
+  res.status(200).json({
+    success: true,
+    message: "Server running successfully 🚀",
     timestamp: new Date().toISOString(),
-    environment: envCheck
+    environment: envCheck,
   });
 });
 
-// ✅ Root endpoint
-app.get('/', (req, res) => {
-  res.json({ 
-    message: 'India Tour Company API 🌍',
-    status: 'Running ✅',
-    version: '2.0.0',
+/* ======================================================
+   ✅ ROOT ROUTE
+====================================================== */
+app.get("/", (req, res) => {
+  res.status(200).json({
+    message: "India Tour Company API 🌍",
+    status: "Running ✅",
+    version: "3.0.0",
     endpoints: [
-      'POST /api/enquiry - Submit tour enquiry',
-      'POST /api/contact - Submit contact form',
-      'GET /api/health - Health check'
-    ]
+      "POST /api/enquiry",
+      "POST /api/contact",
+      "GET /api/health",
+    ],
   });
 });
 
-// ✅ API Routes
+/* ======================================================
+   ✅ API ROUTES
+====================================================== */
 app.use("/api", enquiryRoutes);
 app.use("/api", contactRoutes);
 
-// ✅ 404 Handler
+/* ======================================================
+   ✅ 404 HANDLER
+====================================================== */
 app.use((req, res) => {
   res.status(404).json({
     success: false,
-    message: `Route ${req.method} ${req.path} not found`,
-    availableRoutes: [
-      'POST /api/enquiry',
-      'POST /api/contact',
-      'GET /api/health'
-    ]
+    message: `Route ${req.method} ${req.originalUrl} not found`,
   });
 });
 
-// ✅ Error handling middleware
+/* ======================================================
+   ✅ GLOBAL ERROR HANDLER
+====================================================== */
 app.use((err, req, res, next) => {
-  console.error('❌ Error occurred:', err);
-  console.error('Stack trace:', err.stack);
-  
+  console.error("❌ Global Error:", err.message);
+
   res.status(err.status || 500).json({
     success: false,
-    message: 'Internal server error',
-    error: process.env.NODE_ENV === 'development' ? {
-      message: err.message,
-      stack: err.stack
-    } : 'An error occurred'
+    message:
+      process.env.NODE_ENV === "development"
+        ? err.message
+        : "Internal Server Error",
   });
 });
 
+/* ======================================================
+   ✅ START SERVER (Render Compatible)
+====================================================== */
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log('='.repeat(50));
+  console.log("=".repeat(50));
   console.log(`✅ Server running on port ${PORT}`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`📧 Email service: Brevo SMTP`);
-  console.log(`📬 Receiver email: ${process.env.RECEIVER_EMAIL || 'Not set'}`);
-  console.log('='.repeat(50));
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || "production"}`);
+  console.log(`📧 Email service: Brevo API (HTTPS)`);
+  console.log(`📬 Receiver email: ${process.env.RECEIVER_EMAIL || "Not set"}`);
+  console.log("=".repeat(50));
 });
 
-// ✅ Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('👋 SIGTERM received, shutting down gracefully');
+/* ======================================================
+   ✅ GRACEFUL SHUTDOWN
+====================================================== */
+process.on("SIGTERM", () => {
+  console.log("👋 SIGTERM received. Shutting down...");
   process.exit(0);
 });
 
-process.on('SIGINT', () => {
-  console.log('👋 SIGINT received, shutting down gracefully');
+process.on("SIGINT", () => {
+  console.log("👋 SIGINT received. Shutting down...");
   process.exit(0);
 });
-
-
-
-
-
-
-
